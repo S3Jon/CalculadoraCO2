@@ -1,0 +1,5 @@
+calculadoraco2.description:
+  title: 'Calculadora CO2'
+  menu_name: 'main'
+  route_name: calculadoraco2.description
+  #weight: 100

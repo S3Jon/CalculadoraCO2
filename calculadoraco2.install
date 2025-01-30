@@ -1,0 +1,52 @@
+<?php
+
+
+function calculadoraco2_install() {
+  \Drupal::service('module_installer')->install(['calculadoraco2']); 
+}
+
+function calculadoraco2_schema() {
+  $schema['calculadoraco2_table'] = [
+    'description' => 'Tabla de registro para calculadora CO2',
+    'fields' => [
+        'id' => [
+            'type' => 'serial',
+            'not null' => TRUE,
+            'description' => 'Primary Key',
+        ],
+        'user_id' => [
+            'type' => 'int',
+            'not null' => TRUE,
+            'default' => 0,
+            'description' => 'ID del usuario',
+        ],
+        'grupo_tipo_tid' => [ // Ahora como string
+            'type' => 'varchar',
+            'length' => 255,
+            'not null' => TRUE,
+            'default' => '',
+            'description' => 'Nombre del término de taxonomía que representa el tipo de grupo',
+        ],
+        'grupo_integrantes_num' => [
+            'type' => 'int',
+            'not null' => TRUE,
+            'default' => 0,
+            'description' => 'Número de integrantes del grupo',
+        ],
+        'created' => [
+            'type' => 'int',
+            'not null' => TRUE,
+            'default' => 0,
+            'description' => 'Fecha de creación del registro',
+        ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+        'user_id' => ['user_id'],
+        'grupo_tipo_tid' => ['grupo_tipo_tid'], 
+    ],
+];
+
+
+  return $schema;
+}

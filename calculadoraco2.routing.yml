@@ -1,0 +1,15 @@
+calculadoraco2.description:
+  path: '/calculadoraco2'
+  defaults:
+    _controller: 'Drupal\calculadoraco2\Controller\calculadoraco2Controller::description'
+    _title: 'Modulo de pruebas'
+  requirements:
+    _permission: 'access content'
+
+calculadoraco2.form:
+  path: '/calculadoraco2/form'
+  defaults:
+    _form: 'Drupal\calculadoraco2\Form\CalculadoraCO2Form'
+    _title: 'Calculadora CO2'
+  requirements:
+    _permission: 'access content'
