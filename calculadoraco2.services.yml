@@ -1,0 +1,5 @@
+services:
+  calculadoraco2.views_data:
+    class: Drupal\calculadoraco2\Plugin\views\CalculadoraCO2ViewsData
+    tags:
+      - { name: views.views_data }

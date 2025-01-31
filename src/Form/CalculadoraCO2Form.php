@@ -7,6 +7,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Database\Connection;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\taxonomy\Entity\Term;
 
 class CalculadoraCO2Form extends FormBase {
   protected $step = 1;
@@ -31,8 +32,8 @@ class CalculadoraCO2Form extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state) {
     if (!$this->currentUser->isAuthenticated()) {
-        header('Location: /user/login');
-      }
+      header('Location: /user/login');
+    }
 
     $this->step = $form_state->get('step') ? $form_state->get('step') : 1;
 
@@ -119,33 +120,44 @@ class CalculadoraCO2Form extends FormBase {
       $timestamp = time();
       $uid = $this->currentUser->id();
 
-      $query = $this->database->select('calculadoraco2_table', 'c')
-        ->fields('c')
-        ->condition('user_id', $uid)
-        ->execute();
-      $result = $query->fetchObject();
+      $term = \Drupal::entityTypeManager()
+        ->getStorage('taxonomy_term')
+        ->loadByProperties([
+          'vid' => 'calculadora_co2',
+          'name' => $tipo_grupo,
+        ]);
 
-      if (!$result) {
-        $this->database->insert('calculadoraco2_table')
-          ->fields([
-            'user_id' => $uid,
-            'grupo_tipo_tid' => $tipo_grupo,
-            'grupo_integrantes_num' => $integrantes,
-            'created' => $timestamp,
-          ])
-          ->execute();
-      } else {
-        $this->database->update('calculadoraco2_table')
-          ->fields([
-            'grupo_tipo_tid' => $tipo_grupo,
-            'grupo_integrantes_num' => $integrantes,
-            'created' => $timestamp,
-          ])
-          ->condition('user_id', $uid)
-          ->execute();
+      $valor1 = 0;
+      $valor2 = 0;
+
+      if (!empty($term)) {
+        $termino = reset($term);
+        $descripcion = $termino->get('description')->value;
+        $taxonomia_id = $termino->id();
+        $arrayValores = explode(',', $descripcion);
+
+        $valor1 = (float)preg_replace('/[^0-9.]/', '', $arrayValores[0]);
+        $valor2 = (float)preg_replace('/[^0-9.]/', '', $arrayValores[1]);
       }
 
-      $form_state->setRedirect('calculadoraco2.description');
+      $total_CO2 = $integrantes * $valor1 * $valor2;
+
+      // Obtener el nombre del usuario.
+      $user = \Drupal\user\Entity\User::load($uid);
+      $nombre = $user ? $user->getDisplayName() : 'Usuario no encontrado';
+
+      $this->database->insert('calculadoraco2_table')
+        ->fields([
+          'user_id' => $uid,
+          'grupo_tipo_tid' => $taxonomia_id,
+          'grupo_integrantes_num' => $integrantes,
+          'created' => $timestamp,
+          'CO2' => $total_CO2,
+          'nombre' => $nombre,
+        ])
+        ->execute();
+
+      $form_state->setRedirect('calculadoraco2.user');
     } else {
       $stored_values = $form_state->get('stored_values') ? $form_state->get('stored_values') : [];
       $stored_values = array_merge($stored_values, $form_state->getValues());

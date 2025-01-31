@@ -1,52 +1,131 @@
 <?php
 
-
-function calculadoraco2_install() {
-  \Drupal::service('module_installer')->install(['calculadoraco2']); 
-}
-
+/**
+ * Implements hook_schema().
+ */
 function calculadoraco2_schema() {
   $schema['calculadoraco2_table'] = [
     'description' => 'Tabla de registro para calculadora CO2',
     'fields' => [
-        'id' => [
-            'type' => 'serial',
-            'not null' => TRUE,
-            'description' => 'Primary Key',
-        ],
-        'user_id' => [
-            'type' => 'int',
-            'not null' => TRUE,
-            'default' => 0,
-            'description' => 'ID del usuario',
-        ],
-        'grupo_tipo_tid' => [ // Ahora como string
-            'type' => 'varchar',
-            'length' => 255,
-            'not null' => TRUE,
-            'default' => '',
-            'description' => 'Nombre del término de taxonomía que representa el tipo de grupo',
-        ],
-        'grupo_integrantes_num' => [
-            'type' => 'int',
-            'not null' => TRUE,
-            'default' => 0,
-            'description' => 'Número de integrantes del grupo',
-        ],
-        'created' => [
-            'type' => 'int',
-            'not null' => TRUE,
-            'default' => 0,
-            'description' => 'Fecha de creación del registro',
-        ],
+      'id' => [
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key',
+      ],
+      'user_id' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'ID del usuario',
+      ],
+      'grupo_tipo_tid' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'Referencia al término de taxonomía',
+      ],
+      'grupo_integrantes_num' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Número de integrantes del grupo',
+      ],
+      'created' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Fecha de creación del registro',
+      ],
+      'CO2' => [
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0.0,
+        'description' => 'Cantidad de CO2 calculada',
+      ],
+      'nombre' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Nombre del usuario que envió el registro',
+      ],
     ],
     'primary key' => ['id'],
     'indexes' => [
-        'user_id' => ['user_id'],
-        'grupo_tipo_tid' => ['grupo_tipo_tid'], 
+      'user_id' => ['user_id'],
+      'grupo_tipo_tid' => ['grupo_tipo_tid'],
     ],
-];
-
-
+    'foreign keys' => [
+      'grupo_tipo_tid' => [
+        'table' => 'taxonomy_term_data',
+        'columns' => ['grupo_tipo_tid' => 'tid'],
+      ],
+    ],
+  ];
   return $schema;
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function calculadoraco2_update_8001() {
+  // Agregar las nuevas columnas 'CO2' y 'nombre' a la tabla 'calculadoraco2_table'.
+  $schema = \Drupal::database()->schema();
+  $schema->addField('calculadoraco2_table', 'CO2', [
+    'type' => 'float',
+    'not null' => TRUE,
+    'default' => 0.0,
+    'description' => 'Cantidad de CO2 calculada',
+  ]);
+  $schema->addField('calculadoraco2_table', 'nombre', [
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+    'description' => 'Nombre del usuario que envió el registro',
+  ]);
+
+  $connection = \Drupal::database();
+  $query = $connection->select('calculadoraco2_table', 'c')
+    ->fields('c', ['id', 'user_id', 'grupo_tipo_tid', 'grupo_integrantes_num']);
+  $results = $query->execute();
+
+  foreach ($results as $record) {
+    $tipo_grupo = $record->grupo_tipo_tid;
+    $integrantes = (int) $record->grupo_integrantes_num;
+
+    // Calcular el valor de CO2.
+    $term = \Drupal::entityTypeManager()
+      ->getStorage('taxonomy_term')
+      ->loadByProperties([
+        'vid' => 'calculadora_co2',
+        'name' => $tipo_grupo,
+      ]);
+
+    $valor1 = 0;
+    $valor2 = 0;
+
+    if (!empty($term)) {
+      $termino = reset($term);
+      $descripcion = $termino->get('description')->value;
+      $arrayValores = explode(',', $descripcion);
+
+      $valor1 = (float)preg_replace('/[^0-9.]/', '', $arrayValores[0]);
+      $valor2 = (float)preg_replace('/[^0-9.]/', '', $arrayValores[1]);
+    }
+
+    $total_CO2 = $integrantes * $valor1 * $valor2;
+
+    // Obtener el nombre del usuario.
+    $user = \Drupal\user\Entity\User::load($record->user_id);
+    $nombre = $user ? $user->getDisplayName() : 'Usuario no encontrado';
+
+    // Actualizar el registro con el valor calculado de CO2 y el nombre del usuario.
+    $connection->update('calculadoraco2_table')
+      ->fields([
+        'CO2' => $total_CO2,
+        'nombre' => $nombre,
+      ])
+      ->condition('id', $record->id)
+      ->execute();
+  }
 }
