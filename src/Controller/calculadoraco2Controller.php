@@ -3,7 +3,7 @@
 namespace Drupal\calculadoraco2\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Url;
+use Drupal\taxonomy\Entity\Term;
 use Drupal\user\Entity\User;
 
 class CalculadoraCO2Controller extends ControllerBase {
@@ -31,6 +31,9 @@ class CalculadoraCO2Controller extends ControllerBase {
         '#context' => [
           'module' => 'calculadoraco2',
         ],
+        '#cache' => [
+          'max-age' => 0,
+        ],
       ],
     ];
     return $body;
@@ -46,7 +49,8 @@ class CalculadoraCO2Controller extends ControllerBase {
 
     $output = '';
     foreach ($results as $record) {
-      $tipo_grupo = $record->grupo_tipo_tid;
+      $term = Term::load($record->grupo_tipo_tid);
+      $tipo_grupo = $term ? $term->getName() : $this->t('Tipo de grupo no encontrado');
       $integrantes = (int) $record->grupo_integrantes_num;
       $total_CO2 = (float) $record->CO2;
 
@@ -61,6 +65,9 @@ class CalculadoraCO2Controller extends ControllerBase {
     $response = [
       '#type' => 'markup',
       '#markup' => $output,
+      '#cache' => [
+        'max-age' => 0,
+      ],
     ];
 
     return $response;
@@ -75,7 +82,8 @@ class CalculadoraCO2Controller extends ControllerBase {
     foreach ($results as $record) {
       $user = User::load($record->user_id);
       $username = $user ? $user->getDisplayName() : $this->t('Usuario no encontrado');
-      $tipo_grupo = $record->grupo_tipo_tid;
+      $term = Term::load($record->grupo_tipo_tid);
+      $tipo_grupo = $term ? $term->getName() : $this->t('Tipo de grupo no encontrado');
       $integrantes = (int) $record->grupo_integrantes_num;
       $total_CO2 = (float) $record->CO2;
 
@@ -91,6 +99,9 @@ class CalculadoraCO2Controller extends ControllerBase {
     $response = [
       '#type' => 'markup',
       '#markup' => $output,
+      '#cache' => [
+        'max-age' => 0,
+      ],
     ];
 
     return $response;
