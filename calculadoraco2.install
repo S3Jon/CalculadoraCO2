@@ -19,9 +19,11 @@ function calculadoraco2_schema() {
         'description' => 'ID del usuario',
       ],
       'grupo_tipo_tid' => [
-        'type' => 'int',
+        'type' => 'varchar',
+        'length' => 255,
         'not null' => TRUE,
-        'description' => 'Referencia al término de taxonomía',
+        'default' => '',
+        'description' => 'Nombre del término de taxonomía que representa el tipo de grupo',
       ],
       'grupo_integrantes_num' => [
         'type' => 'int',
@@ -54,13 +56,8 @@ function calculadoraco2_schema() {
       'user_id' => ['user_id'],
       'grupo_tipo_tid' => ['grupo_tipo_tid'],
     ],
-    'foreign keys' => [
-      'grupo_tipo_tid' => [
-        'table' => 'taxonomy_term_data',
-        'columns' => ['grupo_tipo_tid' => 'tid'],
-      ],
-    ],
   ];
+
   return $schema;
 }
 
