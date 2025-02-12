@@ -132,12 +132,9 @@ class CalculadoraCO2Form extends FormBase {
 
       if (!empty($term)) {
         $termino = reset($term);
-        $descripcion = $termino->get('description')->value;
-        $taxonomia_id = $termino->id();
-        $arrayValores = explode(',', $descripcion);
-
-        $valor1 = (float)preg_replace('/[^0-9.]/', '', $arrayValores[0]);
-        $valor2 = (float)preg_replace('/[^0-9.]/', '', $arrayValores[1]);
+        
+        $valor1 = $termino->get('field_valor1')->value ?? 0;
+        $valor2 = $termino->get('field_valor2')->value ?? 0;
       }
 
       $total_CO2 = $integrantes * $valor1 * $valor2;
@@ -149,7 +146,7 @@ class CalculadoraCO2Form extends FormBase {
       $this->database->insert('calculadoraco2_table')
         ->fields([
           'user_id' => $uid,
-          'grupo_tipo_tid' => $taxonomia_id,
+          'grupo_tipo_tid' => $termino->id(),
           'grupo_integrantes_num' => $integrantes,
           'created' => $timestamp,
           'CO2' => $total_CO2,
@@ -157,7 +154,6 @@ class CalculadoraCO2Form extends FormBase {
         ])
         ->execute();
 
-      $form_state->setRedirect('calculadoraco2.user');
     } else {
       $stored_values = $form_state->get('stored_values') ? $form_state->get('stored_values') : [];
       $stored_values = array_merge($stored_values, $form_state->getValues());

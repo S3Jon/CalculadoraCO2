@@ -1,5 +1,9 @@
 <?php
 
+use Drupal\taxonomy\Entity\Term;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\field\Entity\FieldConfig;
+
 /**
  * Implements hook_schema().
  */
@@ -68,7 +72,6 @@ function calculadoraco2_schema() {
  * Implements hook_update_N().
  */
 function calculadoraco2_update_8001() {
-  // Agregar las nuevas columnas 'CO2' y 'nombre' a la tabla 'calculadoraco2_table'.
   $schema = \Drupal::database()->schema();
   $schema->addField('calculadoraco2_table', 'CO2', [
     'type' => 'float',
@@ -84,48 +87,183 @@ function calculadoraco2_update_8001() {
     'description' => 'Nombre del usuario que envió el registro',
   ]);
 
+  $field_storage = \Drupal\field\Entity\FieldStorageConfig::create([
+    'field_name' => 'field_grupo_tipo',
+    'entity_type' => 'calculadoraco2_table',
+    'type' => 'entity_reference',
+    'settings' => [
+      'target_type' => 'taxonomy_term',
+    ],
+  ]);
+  $field_storage->save();
+
+  // Configurar el campo para el bundle específico
+  $field = \Drupal\field\Entity\FieldConfig::create([
+    'field_storage' => $field_storage,
+    'bundle' => 'calculadoraco2_table', // Nombre del bundle
+    'label' => 'Tipo de Grupo',
+    'settings' => [
+      'handler' => 'default',
+      'handler_settings' => [
+        'target_bundles' => [
+          'calculadora_co2' => 'calculadora_co2',
+        ],
+      ],
+    ],
+  ]);
+  $field->save();  
+
   $connection = \Drupal::database();
   $query = $connection->select('calculadoraco2_table', 'c')
     ->fields('c', ['id', 'user_id', 'grupo_tipo_tid', 'grupo_integrantes_num']);
   $results = $query->execute();
 
+  //actualizar registros viejos; calcular CO2 y obtener nombre de usuario.
   foreach ($results as $record) {
-    $tipo_grupo = $record->grupo_tipo_tid;
     $integrantes = (int) $record->grupo_integrantes_num;
 
-    // Calcular el valor de CO2.
+    // Cargar el término de taxonomía
     $term = \Drupal::entityTypeManager()
       ->getStorage('taxonomy_term')
-      ->loadByProperties([
-        'vid' => 'calculadora_co2',
-        'name' => $tipo_grupo,
-      ]);
+      ->load($record->grupo_tipo_tid);
 
     $valor1 = 0;
     $valor2 = 0;
 
+    // Obtener multiplicadores de la taxonomía
     if (!empty($term)) {
-      $termino = reset($term);
-      $descripcion = $termino->get('description')->value;
-      $arrayValores = explode(',', $descripcion);
-
-      $valor1 = (float)preg_replace('/[^0-9.]/', '', $arrayValores[0]);
-      $valor2 = (float)preg_replace('/[^0-9.]/', '', $arrayValores[1]);
+        $termino = reset($term);
+        
+        // Recuperar valores de campos personalizados
+        $valor1 = $term ? $term->get('field_valor1')->value : 0;
+        $valor2 = $term ? $term->get('field_valor2')->value : 0;
     }
 
     $total_CO2 = $integrantes * $valor1 * $valor2;
 
-    // Obtener el nombre del usuario.
+    // Obtener el nombre del usuario
     $user = \Drupal\user\Entity\User::load($record->user_id);
     $nombre = $user ? $user->getDisplayName() : 'Usuario no encontrado';
 
-    // Actualizar el registro con el valor calculado de CO2 y el nombre del usuario.
+    // Actualizar el registro con el valor calculado de CO2
     $connection->update('calculadoraco2_table')
-      ->fields([
-        'CO2' => $total_CO2,
-        'nombre' => $nombre,
-      ])
-      ->condition('id', $record->id)
-      ->execute();
+        ->fields([
+            'CO2' => $total_CO2,
+        ])
+        ->condition('id', $record->id)
+        ->execute();
+  }
+}
+
+function calculadoraco2_install() {
+  // Crear vocabulario (no debería existir)
+  $vocabulary = \Drupal\taxonomy\Entity\Vocabulary::load('calculadora_co2') 
+      ?? \Drupal\taxonomy\Entity\Vocabulary::create([
+          'vid' => 'calculadora_co2',
+          'name' => 'Calculadora CO2',
+          'description' => 'Taxonomía para la calculadora CO2',
+      ]);
+  $vocabulary->save();
+
+  // Campos de valor
+  $campos = [
+      'field_valor1' => 'Valor 1', 
+      'field_valor2' => 'Valor 2'
+  ];
+
+  // Verificar y crear campo de almacenamiento
+  foreach ($campos as $nombre_campo => $etiqueta) {
+      try {
+          $field_storage = FieldStorageConfig::loadByName('taxonomy_term', $nombre_campo);
+          if (!$field_storage) {
+              $field_storage = FieldStorageConfig::create([
+                  'field_name' => $nombre_campo,
+                  'entity_type' => 'taxonomy_term',
+                  'type' => 'float',
+              ]);
+              $field_storage->enforceIsNew()->save();
+          }
+
+          // Verificar y crear configuración de campo
+          $field = FieldConfig::loadByName('taxonomy_term', 'calculadora_co2', $nombre_campo);
+          if (!$field) {
+              $field = FieldConfig::create([
+                  'field_storage' => $field_storage,
+                  'bundle' => 'calculadora_co2',
+                  'label' => $etiqueta,
+              ]);
+              $field->enforceIsNew()->save();
+          }
+      } catch (\Exception $e) {
+          \Drupal::logger('calculadoraco2')->error('Error creating field: ' . $e->getMessage());
+      }
+  }
+
+  // Definir términos
+  $terms = [
+      [
+          'name' => 'Familia',
+          'field_valor1' => 5,
+          'field_valor2' => 0.125,
+      ],
+      [
+          'name' => 'Negocio',
+          'field_valor1' => 10,
+          'field_valor2' => 0.256,
+      ],
+      [
+          'name' => 'Multinacional',
+          'field_valor1' => 20,
+          'field_valor2' => 0.512,
+      ]
+  ];
+
+  // Insertar los términos (que de no deberían existir)
+  foreach ($terms as $term_data) {
+      $existing_terms = \Drupal::entityTypeManager()
+          ->getStorage('taxonomy_term')
+          ->loadByProperties([
+              'vid' => 'calculadora_co2', 
+              'name' => $term_data['name']
+          ]);
+
+      if (empty($existing_terms)) {
+          try {
+              $term = Term::create([
+                  'name' => $term_data['name'],
+                  'vid' => 'calculadora_co2',
+                  'field_valor1' => $term_data['field_valor1'],
+                  'field_valor2' => $term_data['field_valor2'],
+              ]);
+              $term->save();
+          } catch (\Exception $e) {
+              \Drupal::logger('calculadoraco2')->error('Error creating term: ' . $e->getMessage());
+          }
+      }
+  }
+}
+
+function calculadoraco2_uninstall() {
+  // Eliminar vocabulario
+  $vocabulary = \Drupal\taxonomy\Entity\Vocabulary::load('calculadora_co2');
+  if ($vocabulary) {
+      $vocabulary->delete();
+  }
+
+  // Eliminar campos de valor
+  $campos = ['field_valor1', 'field_valor2'];
+  foreach ($campos as $nombre_campo) {
+      $field_storage = FieldStorageConfig::loadByName('taxonomy_term', $nombre_campo);
+      if ($field_storage) {
+          $field_storage->delete();
+      }
+  }
+
+  // Eliminar términos
+  $terms = \Drupal::entityTypeManager()
+      ->getStorage('taxonomy_term')
+      ->loadByProperties(['vid' => 'calculadora_co2']);
+  foreach ($terms as $term) {
+      $term->delete();
   }
 }

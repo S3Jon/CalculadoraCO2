@@ -13,19 +13,3 @@ calculadoraco2.form:
     _title: 'Calculadora CO2'
   requirements:
     _permission: 'access content'
-
-calculadoraco2.user:
-  path: '/calculadoraco2/user'
-  defaults:
-    _controller: 'Drupal\calculadoraco2\Controller\calculadoraco2Controller::user'
-    _title: 'Usuario de la calculadora CO2'
-  requirements:
-    _permission: 'access content'
-
-calculadoraco2.admin:
-  path: '/calculadoraco2/admin'
-  defaults:
-    _controller: 'Drupal\calculadoraco2\Controller\calculadoraco2Controller::admin'
-    _title: 'Administración de la calculadora CO2'
-  requirements:
-    _permission: 'access content'
