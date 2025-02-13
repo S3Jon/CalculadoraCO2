@@ -80,6 +80,7 @@ class CalculadoraCO2Form extends FormBase {
     $form['grupo_integrantes_num'] = [
       '#type' => 'number',
       '#min' => 1,
+      '#max' => 1_500_000_000, //El país con más habitantes tiene 1.400.000.000, no creo que una empresa pudiera tener más
       '#title' => $this->t('Número de integrantes del grupo'),
       '#required' => TRUE,
       '#default_value' => isset($stored_values['grupo_integrantes_num']) ? $stored_values['grupo_integrantes_num'] : '',
