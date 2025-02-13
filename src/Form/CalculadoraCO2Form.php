@@ -137,7 +137,7 @@ class CalculadoraCO2Form extends FormBase {
         $valor2 = $termino->get('field_valor2')->value ?? 0;
       }
 
-      $total_CO2 = $integrantes * $valor1 * $valor2;
+      (float)$total_CO2 = (float)$integrantes * $valor1 * $valor2; // Forzar float porque se capeaba en 2,147,480,000 
 
       // Obtener el nombre del usuario.
       $user = \Drupal\user\Entity\User::load($uid);
